@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>にゃんこガチャ - 強化システムVer</title>
+    <style>
+        @keyframes capsule-shake { 0%,100%{transform:translate(0,0) rotate(0deg)} 10%,30%,50%,70%,90%{transform:translate(-5px,0) rotate(-2deg)} 20%,40%,60%,80%{transform:translate(5px,0) rotate(2deg)} }
+        @keyframes part-explode-top { 0%{transform:translate(0,0) rotate(0deg);opacity:1} 100%{transform:translate(-100px,-150px) rotate(-180deg);opacity:0} }
+        @keyframes part-explode-bottom { 0%{transform:translate(0,0) rotate(0deg);opacity:1} 100%{transform:translate(100px,150px) rotate(180deg);opacity:0} }
+        @keyframes item-pop-out { 0%{transform:scale(0) translateY(100px);opacity:0} 10%{opacity:1} 60%{transform:scale(1.6) translateY(-20px)} 100%{transform:scale(1.4) translateY(0);opacity:1} }
+        @keyframes flash-fade { 0%{opacity:0} 10%{opacity:1} 100%{opacity:0} }
+        
+        * { max-width: 100%; box-sizing: border-box; }
+        body { background: #222; color: white; text-align: center; font-family: sans-serif; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; overflow-x: hidden; padding: 0; }
+        .gacha-box { border: 5px solid #f1c40f; padding: 30px 20px; border-radius: 20px; background: #333; position: relative; width: 100%; max-width: 430px; box-shadow: 0 10px 30px rgba(0,0,0,0.7); }
+        .gacha-stage { position: relative; width: 100px; height: 100px; margin: 30px auto; }
+        .capsule { position: absolute; top: 0; left: 0; width: 100px; height: 100px; background-color: #f1c40f; border-radius: 50%; box-shadow: 0 5px 15px rgba(0,0,0,0.5); z-index: 5; background-image: radial-gradient(circle at 40% 40%, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0) 60%); }
+        .capsule-part { position: absolute; width: 100px; height: 50px; background-color: #f1c40f; z-index: 6; display: none; }
+        .capsule-part.top { border-radius: 50px 50px 0 0; top: 0; }
+        .capsule-part.bottom { border-radius: 0 0 50px 50px; top: 50px; }
+        .result-img { position: absolute; top: 0; left: 0; width: 100px; height: 100px; background-size: contain; background-repeat: no-repeat; background-position: center; z-index: 10; transform: scale(0); opacity: 0; display: none; max-width: 100%; height: auto; object-fit: contain; }
+        .capsule.shaking { animation: capsule-shake 1.5s ease-in-out; }
+        .capsule-part.top.explode { animation: part-explode-top 1s forwards; display: block; }
+        .capsule-part.bottom.explode { animation: part-explode-bottom 1s forwards; display: block; }
+        .result-img.appear { animation: item-pop-out 1.2s forwards; display: block; }
+        .flash-effect { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: white; opacity: 0; z-index: 1000; pointer-events: none; }
+        .flash-effect.fade-in-out { animation: flash-fade 0.5s ease-out; display: block; }
+        .result-display { height: 60px; margin: 20px; font-size: 18px; font-weight: bold; color: #f1c40f; word-wrap: break-word; overflow-wrap: break-word; }
+        button { padding: 15px 20px; font-size: 16px; cursor: pointer; border-radius: 10px; border: none; font-weight: bold; box-shadow: 0 5px rgba(0,0,0,0.3); transition: all 0.1s; max-width: 100%; }
+        button:active { transform: translateY(2px); box-shadow: 0 2px rgba(0,0,0,0.3); }
+        .btn-pull { background: #e67e22; color: white; margin-bottom: 20px; width: 100%; }
+        .btn-pull:disabled { background: #555; opacity: 0.6; cursor: not-allowed; }
+        .btn-back { background: #2980b9; color: white; width: 100%; }
+    </style>
+</head>
+<body>
+<div id="flash-effect" class="flash-effect"></div>
+<div class="gacha-box">
+    <h1>にゃんこガチャ</h1>
+        <div style="color:#a5ccf3; font-size:16px; margin-bottom:10px;">所持ネコ缶: <span id="nekokan">---</span>個</div>
+        <div class="gacha-stage">
+            <div id="capsule" class="capsule"></div>
+            <div id="part-top" class="capsule-part top"></div>
+            <div id="part-bottom" class="capsule-part bottom"></div>
+            <img id="result-img" class="result-img" src="">
+        </div>
+        <div class="result-display"><div id="result-text"></div></div>
+        <button id="pull-btn" class="btn-pull" onclick="drawGacha()">ガチャを引く (150缶)</button><br>
+        <button class="btn-back" onclick="location.href='index.html'">戻る</button>
+<script>
+    const LINEUP = [
+        { id: 'wall', name: 'タンクネコ', img: 'wall.png' }, { id: 'battle', name: 'バトルネコ', img: 'battle.png' },
+        { id: 'kimo', name: 'キモネコ', img: 'kimo.png' }, { id: 'giraffe', name: 'ウシネコ', img: 'giraffe.png' },
+        { id: 'bird', name: 'ネコノトリ', img: 'bird.png' }, { id: 'fish', name: 'ネコフィッシュ', img: 'fish.png' },
+        { id: 'tokage', name: 'ネコトカゲ', img: 'tokage.png' }, { id: 'gian', name: '巨神ネコ', img: 'gian.png' },
+        { id: 'hopping', name: 'ホッピング', img: 'hopping.png' }, { id: 'ruga1', name: 'ネコルガ', img: 'ruga1.png' },
+        { id: 'shirasu', name: 'ラスボース', img: 'shirasu.png' }
+    ];
+
+    let nekokan = parseInt(localStorage.getItem('nekokan')) || 1000;
+    let ownedCats = JSON.parse(localStorage.getItem('ownedCats')) || { 'normal': { lv: 1, exp: 0 } };
+
+    // 互換性: 古い形式（数値）から新しい形式（オブジェクト）に変換
+    for (const [catId, data] of Object.entries(ownedCats)) {
+        if (typeof data === 'number') {
+            ownedCats[catId] = { lv: data, exp: 0 };
+        }
+    }
+
+    function updateStorage() {
+        document.getElementById('nekokan').innerText = nekokan;
+        localStorage.setItem('nekokan', nekokan);
+        localStorage.setItem('ownedCats', JSON.stringify(ownedCats));
+    }
+
+    function drawGacha() {
+        if (nekokan < 150) { alert("ネコ缶不足！"); return; }
+        nekokan -= 150; updateStorage();
+        const btn = document.getElementById('pull-btn'); btn.disabled = true;
+        const result = LINEUP[Math.floor(Math.random() * LINEUP.length)];
+        
+        // 演出リセット & 開始
+        const cap = document.getElementById('capsule');
+        const pT = document.getElementById('part-top'); const pB = document.getElementById('part-bottom');
+        const img = document.getElementById('result-img'); const flash = document.getElementById('flash-effect');
+        const txt = document.getElementById('result-text');
+        
+        cap.style.display = 'block'; cap.classList.add('shaking'); txt.innerText = "";
+        pT.classList.remove('explode'); pB.classList.remove('explode'); img.classList.remove('appear'); flash.classList.remove('fade-in-out');
+
+        setTimeout(() => {
+            cap.style.display = 'none'; cap.classList.remove('shaking');
+            pT.classList.add('explode'); pB.classList.add('explode');
+            flash.classList.add('fade-in-out');
+            img.src = result.img; img.classList.add('appear');
+        }, 1500);
+
+        setTimeout(() => {
+            let isNew = false;
+            if (ownedCats[result.id]) {
+                ownedCats[result.id].lv += 1;
+                isNew = false;
+            } else {
+                ownedCats[result.id] = { lv: 1, exp: 0 };
+                isNew = true;
+            }
+            updateStorage();
+            txt.innerText = result.name + " 獲得！" + (isNew ? " (新規！)" : ` (Lv.${ownedCats[result.id].lv}に進化！)`);
+            btn.disabled = nekokan < 150;
+        }, 2800);
+    }
+    updateStorage();
+</script>
+</body>
+</html>

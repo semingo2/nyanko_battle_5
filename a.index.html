@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>にゃんこ大戦争風 - 開発版</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="bg-gray-900 overflow-hidden" style="margin: 0; padding: 0;">
+
+<div id="app" class="w-screen h-screen flex flex-col bg-gray-900">
+    <div id="common-header" class="absolute top-4 right-6 z-50 bg-gray-800 rounded-full px-4 py-2 border-2 border-yellow-400">
+        <span class="text-yellow-400 font-bold text-sm md:text-base">ネコ缶: <span id="nekokan-val">---</span></span>
+    </div>
+
+    <div id="game-container" class="relative flex-grow w-full bg-blue-400 border-4 border-black overflow-hidden">
+        <div id="stage-info-overlay" style="display:none;" class="absolute inset-0 bg-black bg-opacity-50 z-40 flex items-center justify-center">
+            <span id="current-stage-name" class="text-white text-2xl font-bold"></span>
+        </div>
+
+        <div id="ground" class="absolute bottom-0 w-full h-10 bg-yellow-900 border-t-4 border-yellow-800 z-10"></div>
+        <div id="enemy-base" class="base absolute bottom-8 left-0 w-36 h-48 z-20" style="background-image: url('e_castle.png'); background-size: contain; background-repeat: no-repeat; background-position: center bottom;">
+            <div id="e-hp-text" class="base-hp-text">0 / 0</div>
+            <div class="base-hp absolute -top-8 left-1/2 transform -translate-x-1/2 w-24 h-3 bg-black border-2 border-white"><div id="e-hp-bar" class="base-hp-inner h-full bg-green-500 w-full"></div></div>
+        </div>
+        <div id="player-base" class="base absolute bottom-8 right-0 w-36 h-48 z-20" style="background-image: url('p_castle.png'); background-size: contain; background-repeat: no-repeat; background-position: center bottom;">
+            <div id="p-hp-text" class="base-hp-text">0 / 0</div>
+            <div class="base-hp absolute -top-8 left-1/2 transform -translate-x-1/2 w-24 h-3 bg-black border-2 border-white"><div id="p-hp-bar" class="base-hp-inner h-full bg-green-500 w-full"></div></div>
+        </div>
+    </div>
+
+    <div id="start-overlay" class="fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center">
+        <div id="home-menu" class="menu-content bg-gradient-to-r from-orange-400 to-orange-600 border-6 border-white rounded-3xl p-8 md:p-10 text-center flex flex-col items-center justify-center w-11/12 md:max-w-md shadow-2xl">
+                <h1 class="game-title text-4xl md:text-5xl text-white font-black mt-10 mb-8 md:mt-14 md:mb-10" style="text-shadow: 3px 3px 0 #c0392b, -2px -2px 0 #c0392b, 2px -2px 0 #c0392b, -2px 2px 0 #c0392b; transform: rotate(-2deg);">にゃんこ大戦争風</h1>
+                <button class="main-btn w-full md:max-w-xs bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-6 rounded-full border-b-4 border-red-700 active:border-b-0 active:translate-y-1 mb-4 transition-all" onclick="showStageSelect()">戦闘開始</button>
+                <button class="sub-btn w-full md:max-w-xs bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-full border-b-4 border-blue-700 active:border-b-0 active:translate-y-1 mb-4 transition-all" onclick="showDeckEdit()">編成</button>
+                <button class="sub-btn w-full md:max-w-xs bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-full border-b-4 border-blue-700 active:border-b-0 active:translate-y-1 transition-all" onclick="location.href='gacha.html'">ガチャ画面へ</button>
+            </div>
+            
+            <div id="stage-menu" class="menu-content bg-gradient-to-r from-orange-400 to-orange-600 border-6 border-white rounded-3xl p-8 md:p-10 text-center flex flex-col items-center w-11/12 md:max-w-md shadow-2xl" style="display:none;">
+                <h2 class="text-white font-bold text-2xl md:text-3xl mb-6">ステージ選択</h2>
+                <div class="stage-list w-full max-h-56 overflow-y-auto mb-6 p-2 bg-black bg-opacity-20 rounded-lg" id="stage-list-container"></div>
+                <button class="sub-btn w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-full border-b-4 border-blue-700 active:border-b-0 active:translate-y-1 transition-all" onclick="showHome()">戻る</button>
+            </div>
+
+            <!-- キャラ編成画面 -->
+            <div id="deck-menu" class="formation-screen" style="display:none;">
+                <!-- 上部：タイトル -->
+                <div class="formation-header">
+                    <h1 class="formation-title">キャラクター編成</h1>
+                    <button class="formation-close" onclick="hideDeckEdit()">✕</button>
+                </div>
+
+                <!-- 中部：編成スロット -->
+                <div class="formation-slots-container">
+                    <div class="formation-slots" id="deck">
+                        <!-- 5列×2段 = 10個のスロット -->
+                    </div>
+                </div>
+
+                <!-- 下部：キャラ一覧 + 詳細表示 -->
+                <div class="formation-bottom">
+                    <!-- 左：キャラ一覧（横スクロール） -->
+                    <div class="formation-list-section">
+                        <h2 class="formation-subtitle">所持キャラクター</h2>
+                        <div class="formation-list-wrapper">
+                            <div class="formation-list" id="cat-list">
+                                <!-- キャラアイコン -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 右：詳細表示エリア -->
+                    <div class="formation-detail-section">
+                        <div class="formation-detail-box" id="detail-card">
+                            <div class="detail-empty">キャラクターを選択してください</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 下部ボタン -->
+                <div class="formation-buttons">
+                    <button class="formation-btn formation-btn-back" onclick="hideDeckEdit()">戻る</button>
+                    <button class="formation-btn formation-btn-start" onclick="confirmDeck()">この編成で出撃</button>
+                </div>
+            </div>
+    </div>
+
+    <div id="battle-ui" class="ui-main flex gap-2 md:gap-4 w-full bg-yellow-900 border-4 border-black rounded-none p-2 md:p-3" style="display:none; height: 240px; max-height: 34vh;">
+        <div class="side-control flex flex-col gap-1 flex-shrink-0">
+            <div class="worker-btn bg-orange-600 hover:bg-orange-700 border-3 border-orange-500 rounded-lg flex flex-col items-center justify-center cursor-pointer text-white font-bold p-1 md:p-2 w-20 h-20 md:w-24 md:h-24 transition text-xs md:text-sm" onclick="upgradeWorker()">
+                <span>働きネコ</span>
+                <span>Lv.<span id="w-lv">1</span></span>
+                <span id="w-cost" class="text-xs">¥100</span>
+            </div>
+        </div>
+        
+        <div class="center-ui flex-grow flex flex-col items-center gap-1 justify-start">
+            <div class="money-display text-white font-bold text-xs md:text-base bg-black bg-opacity-50 px-2 py-0.5 md:px-3 md:py-1 rounded">¥<span id="money">0</span> / <span id="max-m">2000</span></div>
+            <div class="deck-grid grid gap-1 w-full flex-grow" id="deck-grid" style="grid-template-columns: repeat(5, 1fr); grid-template-rows: repeat(2, 1fr); align-content: start;"></div>
+        </div>
+
+        <div class="side-control flex flex-col gap-1 flex-shrink-0">
+            <div class="cannon-btn bg-orange-600 hover:bg-orange-700 border-3 border-orange-500 rounded-lg flex flex-col items-center justify-center cursor-pointer text-white font-bold p-1 md:p-2 w-20 h-20 md:w-24 md:h-24 relative transition text-xs md:text-sm" onclick="fireCannon()">
+                <div id="cannon-fill" class="cannon-fill absolute bottom-0 w-full bg-orange-400 bg-opacity-60 rounded-b-lg pointer-events-none" style="height: 0%;"></div>
+                <span>にゃんこ砲</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- リザルト画面 -->
+    <div id="result-overlay" class="fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center" style="display:none;">
+        <div id="result-content" class="menu-content bg-gradient-to-b from-purple-600 to-purple-800 border-6 border-yellow-400 rounded-3xl p-8 md:p-10 text-center flex flex-col items-center justify-center w-11/12 md:max-w-md shadow-2xl">
+            <!-- JavaScriptで動的に生成 -->
+        </div>
+    </div>
+</div>
+
+<script src="data.js"></script>
+<script src="game.js"></script>
+<script>
+    // ブラウザの「戻る」で戻った際もデータを最新にするyo
+    window.addEventListener('pageshow', (e) => { if (e.persisted) location.reload(); });
+</script>
+</body>
+</html>
